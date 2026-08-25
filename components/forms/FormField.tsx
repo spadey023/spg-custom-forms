@@ -1,5 +1,5 @@
 const inputClasses =
-  "rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600";
+  "rounded-lg border border-slate-300 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:bg-white focus:ring-4 focus:ring-blue-600/10";
 
 export function FormField({
   name,
@@ -19,8 +19,8 @@ export function FormField({
   placeholder?: string;
 }) {
   return (
-    <label htmlFor={name} className="flex flex-col gap-1 text-sm">
-      <span className="font-medium text-gray-700">
+    <label htmlFor={name} className="flex flex-col gap-1.5 text-sm">
+      <span className="font-medium text-slate-700">
         {label}
         {required && <span aria-hidden="true"> *</span>}
       </span>
@@ -33,7 +33,7 @@ export function FormField({
         placeholder={placeholder}
         aria-invalid={error ? "true" : undefined}
         aria-describedby={error ? `${name}-error` : undefined}
-        className={`${inputClasses} ${error ? "border-red-500" : ""}`}
+        className={`${inputClasses} ${error ? "border-red-500 focus:border-red-500 focus:ring-red-500/10" : ""}`}
       />
       {error && (
         <span id={`${name}-error`} className="text-xs text-red-600">
@@ -49,7 +49,7 @@ export function FileField({
   label,
   required = false,
   error,
-  accept = ".pdf,.doc,.docx,.jpg,.jpeg,.png",
+  accept,
 }: {
   name: string;
   label: string;
@@ -58,8 +58,8 @@ export function FileField({
   accept?: string;
 }) {
   return (
-    <label htmlFor={name} className="flex flex-col gap-1 text-sm">
-      <span className="font-medium text-gray-700">
+    <label htmlFor={name} className="flex flex-col gap-1.5 text-sm">
+      <span className="font-medium text-slate-700">
         {label}
         {required && <span aria-hidden="true"> *</span>}
       </span>
@@ -71,7 +71,7 @@ export function FileField({
         accept={accept}
         aria-invalid={error ? "true" : undefined}
         aria-describedby={error ? `${name}-error` : undefined}
-        className={`rounded-md border ${error ? "border-red-500" : "border-gray-300"} bg-white px-3 py-2 text-sm text-gray-900 file:mr-3 file:rounded file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100`}
+        className={`rounded-lg border ${error ? "border-red-500" : "border-slate-300"} bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-950 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-blue-800 hover:file:bg-blue-100`}
       />
       {error && (
         <span id={`${name}-error`} className="text-xs text-red-600">

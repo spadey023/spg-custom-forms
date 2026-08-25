@@ -14,33 +14,42 @@ export function RepeatableFieldGroup({
   groupName,
   fields,
   addLabel,
+  defaultValues = {},
 }: {
   groupName: string;
   fields: FieldDef[];
   addLabel: string;
+  defaultValues?: Record<string, string>;
 }) {
-  const [rowIds, setRowIds] = useState<number[]>([0]);
-  const [nextId, setNextId] = useState(1);
+  const initialRowIds = Object.keys(defaultValues)
+    .filter((name) => name.startsWith(`${groupName}[`))
+    .map((name) => Number(name.match(/\[(\d+)\]/)?.[1]))
+    .filter((rowId) => Number.isInteger(rowId));
+  const rowIdsFromValues = [...new Set(initialRowIds)].sort((a, b) => a - b);
+  const startingRowIds = rowIdsFromValues.length ? rowIdsFromValues : [0];
+  const [rowIds, setRowIds] = useState<number[]>(startingRowIds);
+  const [nextId, setNextId] = useState(Math.max(...startingRowIds) + 1);
 
   return (
     <div className="flex flex-col gap-3">
       {rowIds.map((rowId) => (
         <div
           key={rowId}
-          className="grid gap-3 rounded-md border border-gray-200 p-4 sm:grid-cols-2"
+          className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/50 p-4 sm:grid-cols-2"
         >
           {fields.map((field) => (
             <label
               key={field.name}
-              className="flex flex-col gap-1 text-sm"
+              className="flex flex-col gap-1.5 text-sm"
               htmlFor={`${groupName}-${rowId}-${field.name}`}
             >
-              <span className="font-medium text-gray-700">{field.label}</span>
+              <span className="font-medium text-slate-700">{field.label}</span>
               <input
                 id={`${groupName}-${rowId}-${field.name}`}
                 type={field.type ?? "text"}
                 name={`${groupName}[${rowId}].${field.name}`}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                defaultValue={defaultValues[`${groupName}[${rowId}].${field.name}`]}
+                className="rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-950 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10"
               />
             </label>
           ))}
@@ -48,7 +57,7 @@ export function RepeatableFieldGroup({
             <button
               type="button"
               onClick={() => setRowIds((rows) => rows.filter((id) => id !== rowId))}
-              className="justify-self-start text-sm text-red-600 hover:underline sm:col-span-2"
+              className="justify-self-start text-sm text-red-600 hover:text-red-700 hover:underline sm:col-span-2"
             >
               Remove
             </button>
@@ -61,7 +70,7 @@ export function RepeatableFieldGroup({
           setRowIds((rows) => [...rows, nextId]);
           setNextId((n) => n + 1);
         }}
-        className="self-start text-sm font-medium text-blue-700 hover:underline"
+        className="self-start text-sm font-medium text-blue-800 hover:text-blue-950 hover:underline"
       >
         {addLabel}
       </button>

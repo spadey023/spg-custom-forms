@@ -12,8 +12,8 @@ export function FormStatusMessage({
       aria-live="polite"
       className={`rounded-md border p-4 text-sm ${
         isSuccess
-          ? "border-green-300 bg-green-50 text-green-800"
-          : "border-red-300 bg-red-50 text-red-800"
+          ? "border-teal-200 bg-teal-50 text-teal-900"
+            : "border-red-200 bg-red-50 text-red-800"
       }`}
     >
       {message}

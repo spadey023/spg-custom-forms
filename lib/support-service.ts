@@ -55,7 +55,7 @@ export async function processSupportSubmission(formData: FormData): Promise<Supp
   const timestamp = new Date().toLocaleString("en-US");
   // Base format per solution doc §4.3; case reference prefix added per §4.4
   // ("Included in the email subject, email body, and returned to the client").
-  const subject = `[${caseReference}] ${portalName} ${email} Access Issue ${timestamp}`;
+  const subject = `[${portalName}] ${email} - Access Issue - ${timestamp}`;
 
   const bodyLines = [
     `Case Reference: ${caseReference}`,

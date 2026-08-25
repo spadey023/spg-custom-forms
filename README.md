@@ -5,17 +5,29 @@ Two public-facing forms reached from the OKTA login/registration error flow, bui
 - **Producer Appointment Form** — `/appointment` — unregistered producers request an appointment. Requires E&O, W9, and State License uploads. Emails `spgappointments@specialtyprogramgroup.com`.
 - **Contact Support Form** — `/support` — users with login/registration errors submit a support request. Generates a case reference number. Emails `spgportaladmin@specialtyprogramgroup.com`.
 
-Both pages accept a `?portal=` query parameter (e.g. `/appointment?portal=surefyre`) so one deployment serves every SPG portal. Email is sent server-side only via MS Exchange (SMTP/TLS) — no third-party email vendor, and recipient addresses never reach the browser.
+Both pages accept a `?portal=` query parameter (e.g. `/appointment?portal=surefyre`) so one deployment serves every SPG portal. Email is sent server-side only through Exchange Online via Microsoft Graph — no third-party email vendor, and recipient addresses never reach the browser.
 
 ## Getting started
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in Exchange credentials when available
+cp .env.example .env.local   # fill in Entra certificate settings when available
 npm run dev
 ```
 
-Without `EXCHANGE_SMTP_HOST`/`EXCHANGE_SMTP_USER`/`EXCHANGE_SMTP_PASSWORD` set, the mailer (`lib/mailer.ts`) runs in **dry-run mode**: it logs the composed email to the console instead of sending it, so both forms are fully testable locally before real Exchange credentials exist.
+Without the certificate mail settings below, the mailer (`lib/mailer.ts`) runs in **dry-run mode**: it logs the composed email to the console instead of sending it.
+
+## Exchange certificate setup
+
+The mailer sends through Exchange Online using Microsoft Graph and an Entra ID app registration. Configure these server-only environment variables:
+
+- `EXCHANGE_TENANT_ID` — Microsoft Entra tenant ID
+- `EXCHANGE_CLIENT_ID` — app registration client ID
+- `EXCHANGE_CLIENT_CERTIFICATE` — the app's public certificate in PEM format
+- `EXCHANGE_CLIENT_PRIVATE_KEY` — matching private key in PEM format
+- `EXCHANGE_MAIL_FROM` — licensed Exchange Online mailbox or permitted sender address
+
+Grant the app the **Application** permission `Mail.Send` in Microsoft Graph and grant admin consent. Upload the public certificate to the app registration; never commit the private key. For hosting systems that do not preserve multiline environment values, encode PEM line breaks as `\\n`.
 
 ## Project structure
 

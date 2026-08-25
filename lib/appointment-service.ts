@@ -98,7 +98,7 @@ export async function processAppointmentSubmission(
 
   const portalName = getPortalDisplayName(portal);
   const systemDate = new Date().toLocaleDateString("en-US");
-  const subject = `${agencyName} New Producer Appointment Request ${systemDate}`;
+  const subject = `[${agencyName}] New Producer Appointment Request - ${systemDate}`;
 
   const bodyLines = [
     `Agency Name: ${agencyName}`,

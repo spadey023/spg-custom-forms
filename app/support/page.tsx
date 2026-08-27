@@ -16,7 +16,12 @@ export default async function SupportPage({
 
   return (
     <div className="relative min-h-screen">
-      <div className="absolute inset-x-0 top-0 h-64 bg-spgblue-800" aria-hidden="true" />
+      <div className="absolute inset-x-0 top-0 h-64 bg-spgblue-800" aria-hidden="true">
+        <div
+          className="absolute inset-0 bg-[url('/branding/SPG-Website-Branding.svg')] bg-cover bg-center bg-no-repeat opacity-31"
+          aria-hidden="true"
+        />
+      </div>
       <main className="relative z-10 mx-auto flex w-full max-w-4xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-14">
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.16em] text-spggreen-500">

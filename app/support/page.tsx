@@ -3,7 +3,7 @@ import { SupportForm } from "./SupportForm";
 import { getPortalDisplayName } from "@/lib/portals";
 
 export const metadata: Metadata = {
-  title: "Contact Support | SPG",
+  title: "SPG | Contact Support",
 };
 
 export default async function SupportPage({

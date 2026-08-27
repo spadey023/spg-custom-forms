@@ -48,7 +48,7 @@ export function AppointmentForm({ portal }: { portal: string }) {
 
       <section className="flex flex-col gap-5">
         <div className="flex items-baseline justify-between gap-4 border-b border-slate-200 pb-3">
-          <h2 className="text-base font-semibold text-slate-950">Agency information</h2>
+          <h2 className="text-lg font-semibold text-slate-950">Agency information</h2>
           <span className="text-xs text-slate-400">01</span>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -72,7 +72,7 @@ export function AppointmentForm({ portal }: { portal: string }) {
 
       <section className="flex flex-col gap-5">
         <div className="flex items-baseline justify-between gap-4 border-b border-slate-200 pb-3">
-          <h2 className="text-base font-semibold text-slate-950">File uploads</h2>
+          <h2 className="text-lg font-semibold text-slate-950">File uploads</h2>
           <span className="text-xs text-slate-400">02</span>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
@@ -84,7 +84,7 @@ export function AppointmentForm({ portal }: { portal: string }) {
 
       <section className="flex flex-col gap-5">
         <div className="flex items-baseline justify-between gap-4 border-b border-slate-200 pb-3">
-          <h2 className="text-base font-semibold text-slate-950">Other office locations</h2>
+          <h2 className="text-lg font-semibold text-slate-950">Other office locations</h2>
           <span className="text-xs text-slate-400">03</span>
         </div>
         <RepeatableFieldGroup
@@ -101,7 +101,7 @@ export function AppointmentForm({ portal }: { portal: string }) {
 
       <section className="flex flex-col gap-5">
         <div className="flex items-baseline justify-between gap-4 border-b border-slate-200 pb-3">
-          <h2 className="text-base font-semibold text-slate-950">Portal administrator contact</h2>
+          <h2 className="text-lg font-semibold text-slate-950">Portal administrator contact</h2>
           <span className="text-xs text-slate-400">04</span>
         </div>
         <RepeatableFieldGroup
@@ -119,7 +119,7 @@ export function AppointmentForm({ portal }: { portal: string }) {
 
       <section className="flex flex-col gap-5">
         <div className="flex items-baseline justify-between gap-4 border-b border-slate-200 pb-3">
-          <h2 className="text-base font-semibold text-slate-950">Additional information</h2>
+          <h2 className="text-lg font-semibold text-slate-950">Additional information</h2>
           <span className="text-xs text-slate-400">05</span>
         </div>
         <CharCounterTextarea

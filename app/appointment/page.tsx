@@ -3,7 +3,7 @@ import { AppointmentForm } from "./AppointmentForm";
 import { getPortalDisplayName } from "@/lib/portals";
 
 export const metadata: Metadata = {
-  title: "Producer Appointment Request | SPG",
+  title: "SPG | Producer Appointment Request",
 };
 
 export default async function AppointmentPage({

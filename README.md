@@ -1,82 +1,124 @@
 # SPG Custom Forms
 
-Two public-facing forms reached from the OKTA login/registration error flow, built as a single Next.js (App Router) application. Implements the architecture in the SPG OKTA Integration — Custom Web Forms solution doc.
+This is a Next.js App Router application that serves two public-facing portal forms used during the OKTA login/registration error flow:
 
-- **Producer Appointment Form** — `/appointment` — unregistered producers request an appointment. Requires E&O, W9, and State License uploads. Emails `spgappointments@specialtyprogramgroup.com`.
-- **Contact Support Form** — `/support` — users with login/registration errors submit a support request. Generates a case reference number. Emails `spgportaladmin@specialtyprogramgroup.com`.
+- Producer Appointment: `/appointment`
+- Contact Support: `/support`
 
-Both pages accept a `?portal=` query parameter (e.g. `/appointment?portal=surefyre`) so one deployment serves every SPG portal. Email is sent server-side only through Exchange Online via Microsoft Graph — no third-party email vendor, and recipient addresses never reach the browser.
+Both pages are designed to work behind a shared deployment and use the `?portal=` query string to tailor the experience for a specific SPG portal slug while keeping one codebase for all portals.
+
+## Current implementation
+
+### Forms and flow
+
+- `/appointment` collects producer appointment details and required document uploads.
+- `/support` collects portal access/support details and generates a case reference.
+- Both forms use Next.js server actions and `useActionState` for inline validation and status handling.
+- The app currently runs in a single-page, server-rendered setup with no dedicated `/api/*` route handlers checked into this repo.
+
+### Email transport
+
+The app sends mail server-side through Microsoft Graph using an Entra app registration and certificate-based authentication.
+
+The mailer in `lib/mailer.ts` currently expects these environment variables:
+
+- `EXCHANGE_TENANT_ID`
+- `EXCHANGE_CLIENT_ID`
+- `EXCHANGE_CLIENT_CERTIFICATE_PATH`
+- `EXCHANGE_CLIENT_CERTIFICATE_PASSWORD`
+- `EXCHANGE_MAIL_FROM`
+
+If those values are not configured, the app falls back to a dry-run mode and logs the message instead of sending it. This is intentional for local development and safe startup without real credentials.
+
+### Recipients and validation
+
+- `APPOINTMENTS_RECIPIENT` defaults to `spgappointments@specialtyprogramgroup.com`
+- `SUPPORT_RECIPIENT` defaults to `spgportaladmin@specialtyprogramgroup.com`
+- Attachment validation is enforced server-side in `lib/file-validation.ts` before an email is composed.
+- The current default per-file limit is 5 MB, with the value controlled by `MAX_ATTACHMENT_SIZE_MB`.
 
 ## Getting started
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in Entra certificate settings when available
+cp .env.example .env.local
 npm run dev
 ```
 
-Without the certificate mail settings below, the mailer (`lib/mailer.ts`) runs in **dry-run mode**: it logs the composed email to the console instead of sending it.
+If real Exchange credentials are not present, the app still starts and the mailer logs outbound message details in dry-run mode instead of sending email.
 
-## Exchange certificate setup
+## Environment configuration
 
-The mailer sends through Exchange Online using Microsoft Graph and an Entra ID app registration. Configure these server-only environment variables:
+The project’s current example file is [.env.example](.env.example), which reflects the implementation in the repo. It includes:
 
-- `EXCHANGE_TENANT_ID` — Microsoft Entra tenant ID
-- `EXCHANGE_CLIENT_ID` — app registration client ID
-- `EXCHANGE_CLIENT_CERTIFICATE` — the app's public certificate in PEM format
-- `EXCHANGE_CLIENT_PRIVATE_KEY` — matching private key in PEM format
-- `EXCHANGE_MAIL_FROM` — licensed Exchange Online mailbox or permitted sender address
+```env
+EXCHANGE_TENANT_ID=
+EXCHANGE_CLIENT_ID=
+EXCHANGE_CLIENT_CERTIFICATE_PATH=
+EXCHANGE_CLIENT_CERTIFICATE_PASSWORD=
+EXCHANGE_MAIL_FROM=
 
-Grant the app the **Application** permission `Mail.Send` in Microsoft Graph and grant admin consent. Upload the public certificate to the app registration; never commit the private key. For hosting systems that do not preserve multiline environment values, encode PEM line breaks as `\\n`.
+APPOINTMENTS_RECIPIENT=spgappointments@specialtyprogramgroup.com
+SUPPORT_RECIPIENT=spgportaladmin@specialtyprogramgroup.com
+MAX_ATTACHMENT_SIZE_MB=5
+```
+
+Notes:
+
+- The mailer supports either extracted PEM files or a `.pfx` certificate path plus password.
+- The app is designed so recipient addresses and credentials stay on the server and are never exposed to the browser.
 
 ## Project structure
 
-```
+```text
 app/
-  appointment/        Producer Appointment page, form, and server action
-  support/             Contact Support page, form, and server action
-  api/
-    appointment/        POST /api/appointment — same logic as the page's
-                         server action, exposed as a standalone HTTP endpoint
-    support/              POST /api/support — same, for Contact Support
-components/forms/       Shared field primitives (text/file inputs, char-counter
-                         textarea, repeatable row group, submit button)
+  appointment/
+  support/
+components/
+  forms/
 lib/
-  appointment-service.ts  Producer Appointment: validate -> build email ->
-                           send via Exchange (solution doc §4.1/§4.2)
-  support-service.ts       Contact Support: generate ref# -> build email ->
-                            send via Exchange (solution doc §4.1/§4.2)
-  mailer.ts             MS Exchange transport (SMTP today; swap this file for
-                         EWS if Hub IT confirms that instead)
-  case-ref.ts            Case reference number generator (SPG-YYYYMMDD-XXXXXX)
-  portals.ts              ?portal= slug -> display name map
-  file-validation.ts       Server-side attachment type/size checks
-  form-data.ts              Parses repeatable office-location / contact rows
+  appointment-service.ts
+  support-service.ts
+  mailer.ts
+  case-ref.ts
+  file-validation.ts
+  form-data.ts
+  portals.ts
+next.config.ts
+package.json
+README.md
 ```
 
-The solution doc's architecture diagram (§4.1) shows both a Next.js page (`/appointment`, `/support`) and a `/api/*` endpoint per form. This app has both, backed by one shared implementation each (`lib/appointment-service.ts`, `lib/support-service.ts`):
+### Key files
 
-- **Page forms** (`/appointment`, `/support`) submit via Next.js Server Actions — progressive enhancement, `useActionState` for inline field errors, no client JS required for the base case.
-- **`POST /api/appointment`** and **`POST /api/support`** are plain Route Handlers accepting the same `multipart/form-data` shape, for any caller that isn't the React form (e.g. a future non-JS client, a test harness, or direct integration). They return `{ message }` on success (`support` also returns `caseReference`) or `{ message, fieldErrors }` with a 400 on validation failure.
+- `app/appointment/page.tsx` and `app/support/page.tsx` render the user-facing pages.
+- `app/appointment/actions.ts` and `app/support/actions.ts` wrap the server action submissions.
+- `lib/appointment-service.ts` validates appointment submissions and builds/sends the appointment email.
+- `lib/support-service.ts` validates support requests, creates the case reference, and sends the support email.
+- `lib/mailer.ts` handles Microsoft Graph authentication and outbound mail transmission.
+- `lib/portals.ts` maps portal slugs to display names.
+- `lib/file-validation.ts` validates upload type and size on the server.
 
-Both entry points call the same validate/build-email/send-via-Exchange logic, so there is nothing to keep in sync.
+## Security and operational notes
 
-## Open items from the solution doc (§8)
+- No authentication is required to render or submit either form, matching the current scope and business requirements.
+- Uploaded files are checked before attachment generation; nothing is written to disk or blob storage in the current implementation.
+- The app keeps Exchange and recipient configuration in server-only code and environment variables.
 
-These are stakeholder decisions, not implementation gaps — the code has sensible defaults wired to env vars so nothing blocks development, but confirm before go-live:
+## Current open items
 
-| Item | Owner | Where it's wired |
-|---|---|---|
-| Exchange SMTP vs EWS, real credentials | Hub IT / Conor | `.env.example`, `lib/mailer.ts` |
-| Per-attachment file size limit | OPS / Hub IT | `MAX_ATTACHMENT_SIZE_MB` env var, `next.config.ts` |
-| Canonical `?portal=` values | Neha Bansal | `lib/portals.ts` |
-| Case reference number format | OPS | `lib/case-ref.ts` (implements the doc's recommended `SPG-YYYYMMDD-XXXXXX`) |
-| Hosting target (Vercel / Azure App Service) | Hub IT / Conor | not yet deployed |
-| PII / secure transmission sign-off for Contact Support | Neha Bansal / OPS | see doc §5.2 |
-| Branding / styling guidelines | Marketing / Manoj | current UI uses plain, neutral Tailwind styling pending brand input |
+These are still project decisions rather than missing code:
 
-## Security notes
+- Confirm the canonical set of valid `?portal=` values in `lib/portals.ts`.
+- Confirm the final hosting target and deployment strategy.
+- Confirm any final branding or UX requirements for the portal forms.
+- Confirm the final attachment size threshold that should be enforced in production.
 
-- Email recipients and Exchange credentials are only referenced in server-only modules (`lib/mailer.ts`, server actions) — never sent to the client.
-- Uploaded files are validated server-side for MIME type and size before being attached to the outgoing email; nothing is written to disk or blob storage.
-- No authentication is required to access either form — this is intentional (see solution doc §9, out of scope).
+## Build and validation
+
+```bash
+npm run build
+npm run lint
+```
+
+This repo is intended to be run as a standard Next.js application with the configured environment values for outbound email. Without those values, the app remains usable in local development mode with dry-run email logging.

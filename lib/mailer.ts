@@ -1,4 +1,6 @@
 import { createHash, createPrivateKey, createSign, randomUUID, X509Certificate } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 
 export type MailAttachment = {
   filename: string;
@@ -15,21 +17,24 @@ export type MailMessage = {
 };
 
 /**
- * MS Exchange email transport (solution doc §4.3).
+ * MS Exchange email transport using Graph API with PFX certificate authentication.
  *
- * Default transport is SMTP with TLS (port 587), per the doc's primary
- * recommendation. If Hub IT confirms EWS instead (open item, doc §8), swap
- * the implementation of `sendExchangeMail` below for an EWS client — every
- * caller (appointment + support actions) goes through this one function, so
- * that's the only file that needs to change.
+ * Requires:
+ * - EXCHANGE_TENANT_ID: Azure tenant ID
+ * - EXCHANGE_CLIENT_ID: Entra app client ID
+ * - EXCHANGE_CLIENT_CERTIFICATE_PATH: Path to PFX file
+ * - EXCHANGE_CLIENT_CERTIFICATE_PASSWORD: PFX password
+ * - EXCHANGE_MAIL_FROM: Sender email address
  *
- * Local/dev fallback: if EXCHANGE_SMTP_HOST/USER/PASSWORD are not set, mail
- * is logged instead of sent ("dry-run mode") so the app is runnable without
- * real Exchange credentials.
+ * Local/dev fallback: if credentials are not set, mail is logged instead
+ * of sent ("dry-run mode") so the app is runnable without real credentials.
  */
+
 type TokenCache = { accessToken: string; expiresAt: number };
+type CertificateCache = { certificate: string; privateKey: string };
 
 let cachedToken: TokenCache | null = null;
+let cachedCertificate: CertificateCache | null = null;
 let dryRunWarned = false;
 
 function requiredEnvironment(name: string): string {
@@ -38,20 +43,79 @@ function requiredEnvironment(name: string): string {
   return value;
 }
 
-function normalizePem(value: string): string {
-  return value.replace(/\\n/g, "\n").replace(/\\r/g, "\r");
-}
-
 function base64Url(value: string): string {
   return Buffer.from(value).toString("base64url");
 }
 
-function createClientAssertion(
-  tenantId: string,
-  clientId: string,
-  certificate: string,
-  privateKey: string
-): string {
+/**
+ * Extract certificate and private key from PFX file or read from PEM files
+ */
+function loadCertificateFromPfx(): CertificateCache {
+  if (cachedCertificate) return cachedCertificate;
+
+  const certPath = requiredEnvironment("EXCHANGE_CLIENT_CERTIFICATE_PATH");
+  const certPassword = requiredEnvironment("EXCHANGE_CLIENT_CERTIFICATE_PASSWORD");
+
+  let certificate: string | null = null;
+  let privateKey: string | null = null;
+
+  // Try to read from pre-extracted PEM files first (preferred method)
+  const basePath = certPath.replace(/\.pfx$/i, "");
+  const certPemPath = `${basePath}-cert.pem`;
+  const keyPemPath = `${basePath}-key.pem`;
+
+  try {
+    if (fs.existsSync(certPemPath) && fs.existsSync(keyPemPath)) {
+      certificate = fs.readFileSync(certPemPath, "utf-8");
+      privateKey = fs.readFileSync(keyPemPath, "utf-8");
+      console.log("[mailer] Loaded certificate from PEM files");
+    } else {
+      // Fallback: try to parse PFX using Node.js native crypto
+      const pfxBuffer = fs.readFileSync(certPath);
+      
+      try {
+        // Try native pkcs12Parse (Node.js 15.7.0+)
+        const crypto = require("crypto");
+        if (typeof crypto.pkcs12Parse === "function") {
+          const p12 = crypto.pkcs12Parse(pfxBuffer, certPassword);
+          
+          if (p12.key && p12.cert) {
+            certificate = p12.cert[0].export("pem").toString();
+            privateKey = p12.key.export({ format: "pem", type: "pkcs8" }).toString();
+            console.log("[mailer] Loaded certificate from PFX using native parser");
+          }
+        }
+      } catch (nativeError) {
+        // If native parsing fails, provide helpful error
+        throw new Error(
+          `[mailer] Failed to load certificate. Please ensure:\n` +
+          `1. PEM files exist: ${certPemPath} and ${keyPemPath}\n` +
+          `   OR\n` +
+          `2. PFX file is valid: ${certPath}\n` +
+          `\nTo create PEM files, run:\n` +
+          `  npx node-forge-extract ${certPath} ${certPassword}\n` +
+          `\nNative error: ${nativeError instanceof Error ? nativeError.message : String(nativeError)}`
+        );
+      }
+    }
+  } catch (error) {
+    console.error("[mailer] Failed to load certificate:", error);
+    throw error instanceof Error ? error : new Error(String(error));
+  }
+
+  if (!certificate || !privateKey) {
+    throw new Error(
+      `[mailer] Failed to extract certificate and private key.\n` +
+      `Expected PEM files:\n  ${certPemPath}\n  ${keyPemPath}\n` +
+      `Or valid PFX file:\n  ${certPath}`
+    );
+  }
+
+  cachedCertificate = { certificate, privateKey };
+  return cachedCertificate;
+}
+
+function createClientAssertion(tenantId: string, clientId: string, certificate: string, privateKey: string): string {
   const now = Math.floor(Date.now() / 1000);
   const certificateObject = new X509Certificate(certificate);
   const thumbprint = createHash("sha1").update(certificateObject.raw).digest("base64url");
@@ -81,8 +145,8 @@ async function getAccessToken(): Promise<string> {
 
   const tenantId = requiredEnvironment("EXCHANGE_TENANT_ID");
   const clientId = requiredEnvironment("EXCHANGE_CLIENT_ID");
-  const certificate = normalizePem(requiredEnvironment("EXCHANGE_CLIENT_CERTIFICATE"));
-  const privateKey = normalizePem(requiredEnvironment("EXCHANGE_CLIENT_PRIVATE_KEY"));
+  const { certificate, privateKey } = loadCertificateFromPfx();
+
   const tokenUrl = `https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`;
   const response = await fetch(tokenUrl, {
     method: "POST",
@@ -152,8 +216,8 @@ export async function sendExchangeMail(message: MailMessage): Promise<void> {
     !from ||
     !process.env.EXCHANGE_TENANT_ID ||
     !process.env.EXCHANGE_CLIENT_ID ||
-    !process.env.EXCHANGE_CLIENT_CERTIFICATE ||
-    !process.env.EXCHANGE_CLIENT_PRIVATE_KEY
+    !process.env.EXCHANGE_CLIENT_CERTIFICATE_PATH ||
+    !process.env.EXCHANGE_CLIENT_CERTIFICATE_PASSWORD
   ) {
     if (!dryRunWarned) {
       console.warn(
